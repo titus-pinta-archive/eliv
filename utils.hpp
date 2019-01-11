@@ -12,6 +12,8 @@
 #include <list>
 #include <iomanip>
 #include <map>
+#include <sstream>
+#include <fstream>
 
 using namespace std;
 
@@ -93,4 +95,11 @@ public:
 	friend ostream& operator<<(ostream& o, const line& rhs);
 };
 
+
+string data_asm(const map<string, symtab*>& final_symtabs);
+string text_asm(const list<line>& final_code);
+
+
+
+int yyerror(const char*);
 #endif

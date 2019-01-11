@@ -25,7 +25,7 @@ int main(int argc, char** argv )
 	if ( argc > 0 )
 		yyin = fopen( argv[0], "r" );
 	else
-		yyin = stdin;
+		cerr << "No input file!";
 
 	yyparse();
 	
@@ -40,6 +40,14 @@ int main(int argc, char** argv )
 			cout << *itr;
 		}	
 	
+	
+	string text = string("\t.file \"") + string(argv[0]) + string("\"\n\n") + data_asm(final_symtabs) + text_asm(final_code);
+	cout << "\n\nGAS code: \n" << text;
+	
+	ofstream ofile;
+	ofile.open("__temp.s");
+	ofile << text << endl;
+	ofile.close();
 	
 	return 0;
 

@@ -117,8 +117,8 @@ _compound_int:		_INTLIT							{
 		
 		aux.code = new reg_code();
 		aux.code->code[0] = string("mov");
-		aux.code->code[1] = (*st)[$1].value;
-		aux.code->code[3] = string("[") + base_addr_comp + string("+") + to_string(num_comp_int++) + string("]");
+		aux.code->code[1] = (*st)[$1].addr;
+		aux.code->code[3] = string("[") + base_addr_comp + string("+") + string("$") + to_string(num_comp_int++) + string("]");
 			
 		$$->push_back(aux);
 		aux.code = 0;
@@ -136,8 +136,8 @@ _compound_int:		_INTLIT							{
 		
 		aux.code = new reg_code();
 		aux.code->code[0] = string("mov");
-		aux.code->code[1] = (*st)[$3].value;
-		aux.code->code[3] = string("[") + base_addr_comp + string("+") + to_string(num_comp_int++) + string("]");
+		aux.code->code[1] = (*st)[$3].addr;
+		aux.code->code[3] = string("[") + base_addr_comp + string("+") + string("$") + to_string(num_comp_int++) + string("]");
 			
 		$$->push_back(aux);
 		aux.code = 0;	
@@ -187,27 +187,57 @@ _formula:		_ID							{$$ = new list<line>(); line aux; aux.res_addr = (*st)[$1].
 	
 	|			_STRINGLIT					{$$ = new list<line>(); 
 	
+		st->current_pointer -= 4;
+	
 		string baddr = *(st->new_addr(4));
+		string escaped = "";
+		int counter = 0;
+			
 		for(int i = 1; i < (*st)[$1].addr.length() - 1; i++)
 		{
 			line aux; aux.res_addr = baddr; aux.res_type = 0x0005;
 			aux.code = new reg_code();
+
+			if((*st)[$1].addr[i] == '\\')
+			{
+				switch((*st)[$1].addr[i + 1])
+				{
+					case 't':
+						escaped = to_string('\t');
+						break;
+								
+						case 'n':
+						escaped = to_string('\n');
+						break;
+						
+						case '\\':
+						escaped = to_string('\\');
+							
+						default:
+						yyerror("Unknown escape char in asm");
+						
+				}
+				i++;
+			} else {
+				escaped = to_string((*st)[$1].addr[i]);
+			}	
 			aux.code->code[0] = string("mov");
-			aux.code->code[1] = string("'") + string(1, (*st)[$1].addr[i]) + string("'");
-			aux.code->code[3] = string("[") + baddr + string("+") + to_string(i) + string("]");
+			aux.code->code[1] = string("$") + escaped;
+			aux.code->code[3] = string("[") + baddr + string("+$") + to_string(i - 1) + string("]");
 			
 			$$->push_back(aux);
 			aux.code = 0;
+			counter++;
 			
 		}
 		
-		st->current_pointer += (*st)[$1].addr.length() - 1;
+		st->current_pointer += counter;
 		
 		line aux; aux.res_addr = baddr; aux.res_type = 0x0005;
 		aux.code = new reg_code();
 		aux.code->code[0] = string("mov");
-		aux.code->code[1] = to_string(0);
-		aux.code->code[3] = string("[") + baddr + string("+") + to_string((*st)[$1].addr.length() - 1) + string("]");
+		aux.code->code[1] = string("$0");
+		aux.code->code[3] = string("[") + baddr + string("+$") + to_string((*st)[$1].addr.length() - 2) + string("]");
 			
 		$$->push_back(aux);
 		aux.code = 0;
@@ -452,7 +482,7 @@ _formula:		_ID							{$$ = new list<line>(); line aux; aux.res_addr = (*st)[$1].
 		aux2.code = new reg_code(); 
 		aux2.code->code[0] = string("and"); 
 		aux2.code->code[1] = aux1.res_addr;
-		aux2.code->code[2] = to_string((1 << (8 * (type_sizes[aux1.res_type]) - 1)));
+		aux2.code->code[2] = string("$") + to_string((1 << (8 * (type_sizes[aux1.res_type]) - 1)));
 		aux2.code->code[3] = aux2.res_addr;
 	
 		$$->push_back(aux2);
@@ -494,7 +524,7 @@ _formula:		_ID							{$$ = new list<line>(); line aux; aux.res_addr = (*st)[$1].
 		aux2.code = new reg_code(); 
 		aux2.code->code[0] = string("nand"); 
 		aux2.code->code[1] = aux1.res_addr;
-		aux2.code->code[2] = to_string((1 << (8 * (type_sizes[aux1.res_type]) - 1)));
+		aux2.code->code[2] = string("$") + to_string((1 << (8 * (type_sizes[aux1.res_type]) - 1)));
 		aux2.code->code[3] = aux2.res_addr;
 	
 		$$->push_back(aux2);

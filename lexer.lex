@@ -12,7 +12,6 @@ symtab* st = new symtab();
 
 	
 int yylineno = 1;
-int yyerror(const char*);
 	
 %}
 
@@ -34,11 +33,11 @@ ID      	[a-z_][a-z0-9_]*
 
 
 
-{INTEGER} 	{yylval.id = st->add_symbol(symbol(0xFF01, yytext, string(yytext))); return _INTLIT;}
+{INTEGER} 	{yylval.id = st->add_symbol(symbol(0xFF01, yytext, string("$") + string(yytext))); return _INTLIT;}
 
-{FLOAT} 	{yylval.id = st->add_symbol(symbol(0xFF02, yytext, string(yytext))); return _FLOATLIT;}
+{FLOAT} 	{float aux = atof(yytext); yylval.id = st->add_symbol(symbol(0xFF02, yytext, string("$") + to_string(*((int*)&aux)))); return _FLOATLIT;}
 
-{CHAR} 		{yylval.id = st->add_symbol(symbol(0xFF03, yytext, string(yytext))); return _CHARLIT;}
+{CHAR} 		{yylval.id = st->add_symbol(symbol(0xFF03, yytext, string("$") + to_string((int) yytext[1]))); return _CHARLIT;}
 
 {STRING} 	{yylval.id = st->add_symbol(symbol(0xFF04, yytext, string(yytext))); return _STRINGLIT;}
 
