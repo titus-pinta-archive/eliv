@@ -86,7 +86,7 @@ public:
 class line 
 {
 public:
-
+	int				size = -1;
 	string			label;
 	reg_code* 		code;
 	string			res_addr;	

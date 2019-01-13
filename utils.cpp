@@ -143,9 +143,9 @@ reg_code& reg_code::operator=(const reg_code& rhs)
 
 ostream& operator<<(ostream& o, const reg_code& rhs)
 {
-	o<<left<<setw(12)<<rhs.code[0]<<" | ";
-	o<<left<<setw(12)<<rhs.code[1]<<" | ";
-	o<<left<<setw(12)<<rhs.code[2]<<" | ";
+	o<<left<<setw(20)<<rhs.code[0]<<" | ";
+	o<<left<<setw(20)<<rhs.code[1]<<" | ";
+	o<<left<<setw(20)<<rhs.code[2]<<" | ";
 	o<<left<<rhs.code[3]<<endl;
 	return o;
 }
@@ -185,7 +185,8 @@ string data_asm(const map<string, symtab*>& final_symtabs)
 					}
 		}
 	}
-	ret += string("\ttemp_vals: .skip 1024\n\n");
+	ret += string("\ttemp_vals: .skip 1024\n");
+	ret += string("\tparam_vals: .skip 1024\n\n");
 	return ret;
 	
 }
@@ -264,11 +265,11 @@ string get_real_addr(string addr)
 	if(aux[1] == 'i')
 	{
 		int base = stoi(aux.substr(3, aux.length() - 1));
-		ret += to_string(-base) + string("(%rbp)");
+		ret += string("param_vals+") + to_string(base);
 	} else if(aux[1] == 'o')
 	{
 		int base = stoi(aux.substr(4, aux.length() - 1));
-		ret += to_string(-base) + string("(%rbp)");
+		ret += string("param_vals+") + to_string(base);
 	} else if(aux[1] == 't')
 	{
 		int base = stoi(aux.substr(5, aux.length() - 1));
@@ -284,11 +285,15 @@ string code_from_line(const line& line)
 	string ret = string("");
 	if	(line.label != string(""))
 	{
-		ret += line.label + string(":\n");
+		
 		if(line.label.find("__") >= line.label.length())
 		{
+			ret = string("\t.section .rdata,\"dr\"\n\n\t.text\n\t.globl ") + line.label.substr(1, line.label.length()) + ("\n\t.def ") + line.label.substr(1, line.label.length()) + ("; .scl 2; .type 32; .endef\n\t.seh_proc ") + line.label.substr(1, line.label.length()) + ("\n");
+			ret += line.label + string(":\n");
 			ret += string("\tpushq %rbp\n\t.seh_pushreg %rbp\n\tmovq %rsp, %rbp\n\t.seh_setframe %rbp, 0\n\tsubq $32, %rsp\n\t.seh_stackalloc 32\n\t.seh_endprologue\n\n");
 			current_label_name = line.label.substr(1, line.label.length() - 1);
+		} else {
+			ret += line.label + string(":\n");
 		}
 	}
 	
@@ -306,16 +311,28 @@ string code_from_line(const line& line)
 					string rb = reg_b(4);
 					
 					ret += string("\tlea ") + get_real_addr(line.code->code[1].substr(1, auxp - 1)) + string(", ") + rb + string("\n");
-					ret += string("\tmov ") + get_real_addr(line.code->code[1].substr(auxp + 1, line.code->code[1].length() - 2)) + string(", ") + ra + string("\n");
+					ret += string("\tmov ") + get_real_addr(line.code->code[1].substr(auxp + 1, line.code->code[1].length() - auxp - 2)) + string(", ") + ra + string("\n");
 					ret += string("\tadd ") + ra + string(", ") + rb + string("\n");
-					ret += string("\tmov (") + rb + string("), ") + get_real_addr(line.code->code[3]) + string("\n"); 
+					if (line.size != -1)
+						ra = reg_a(line.size);
+					else
+						ra = reg_a(stoi(get_size(line.code->code[3])));
+					ret += string("\tmov (") + rb + string("), ") + ra + string("\n");
+					ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n"); 
 				} else {
 					string rb = reg_b(stoi(get_size(line.code->code[1].substr(1, line.code->code[1].length() - 1))));
 					ret += string("\tlea ") + get_real_addr(line.code->code[1].substr(1, line.code->code[1].length() - 2)) + string(", ") + rb + string("\n");
-					ret += string("\tmov (") + rb + string("), ") + get_real_addr(line.code->code[3]) + string("\n");  
+					string ra;
+					if (line.size != -1)
+						ra = reg_a(line.size);
+					else
+						ra = reg_a(stoi(get_size(line.code->code[3])));
+					ret += string("\tmov (") + rb + string("), ") + ra + string("\n");
+					ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");   
 				}
 			}else if(line.code->code[3][0] == '[')
 			{
+				
 				if((auxp = line.code->code[3].find("+")) < line.code->code[3].length())
 				{
 					
@@ -325,11 +342,22 @@ string code_from_line(const line& line)
 					ret += string("\tlea ") + get_real_addr(line.code->code[3].substr(1, auxp - 1)) + string(", ") + rb + string("\n");
 					ret += string("\tmov ") + get_real_addr(line.code->code[3].substr(auxp + 1, line.code->code[3].length() - auxp - 2)) + string(", ") + ra + string("\n");
 					ret += string("\tadd ") + ra + string(", ") + rb + string("\n");
-					ret += string("\tmov") + get_suffix(stoi(get_size(line.code->code[3].substr(1, 0xFF)))) + string(" ") + get_real_addr(line.code->code[1]) + string(", (") + rb + string(")\n");
+					if (line.size != -1)
+						ra = reg_a(line.size);
+					else
+						ra = reg_a(stoi(get_size(line.code->code[1])));
+					ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");   
+					ret += string("\tmov ") + ra + string(", (") + rb + string(")\n");
 				} else {
 					string rb = reg_b(stoi(get_size(line.code->code[3].substr(1, line.code->code[3].length() - 1))));
-					ret += string("\tlea ") + line.code->code[3].substr(1, line.code->code[3].length() - 2) + string(", ") + rb + string("\n");
-					ret += string("\tmov") + get_suffix(stoi(get_size(line.code->code[3].substr(1, 0xFF)))) + string(" ") + line.code->code[1] + string(", (") + rb + string(")\n");  
+					ret += string("\tlea ") + get_real_addr(line.code->code[3].substr(1, line.code->code[3].length() - 2)) + string(", ") + rb + string("\n");
+					string ra;
+					if (line.size != -1)
+						ra = reg_a(line.size);
+					else
+						ra = reg_a(stoi(get_size(line.code->code[1])));
+					ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");   
+					ret += string("\tmov ") + ra + string(", (") + rb + string(")\n");  
 				}
 			} else if(line.code->code[1][0] == '$')
 			{
@@ -347,7 +375,7 @@ string code_from_line(const line& line)
 			
 		} else if(line.code->code[0] == "add")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
@@ -356,7 +384,7 @@ string code_from_line(const line& line)
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "sub")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
@@ -365,7 +393,7 @@ string code_from_line(const line& line)
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "mul")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
@@ -374,27 +402,29 @@ string code_from_line(const line& line)
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "div")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
 			ret += string("\tmov ") + get_real_addr(line.code->code[2]) + string(", ") + rb + string("\n");
-			ret += string("\tidiv ") + rb + string(", ") + ra + string("\n");
+			ret += size == 4 ? string("\tcdq\n") : string("\tcbw\n"); 
+			ret += string("\tidiv ") + rb + string("\n");
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "mod")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			string rd = reg_d(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
 			ret += string("\tmov ") + get_real_addr(line.code->code[2]) + string(", ") + rb + string("\n");
+			ret += size == 4 ? string("\tcdq\n") : string("\tcbw\n"); 
 			ret += string("\tidiv ") + rb + string(", ") + ra + string("\n");
 			ret += string("\tmov ") + rd + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		}
 		else if(line.code->code[0] == "and")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
@@ -403,7 +433,7 @@ string code_from_line(const line& line)
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "or")
 		{
-			int size = line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
+			int size = line.size != -1 ? line.size : line.code->code[1][0] != '$' ? stoi(get_size(line.code->code[1])) : stoi(get_size(line.code->code[2]));
 			string ra = reg_a(size);
 			string rb = reg_b(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
@@ -412,7 +442,7 @@ string code_from_line(const line& line)
 			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
 		} else if(line.code->code[0] == "not")
 		{
-			int size = stoi(get_size(line.code->code[1]));
+			int size = line.size != -1 ? line.size : stoi(get_size(line.code->code[1]));
 			string ra = reg_a(size);
 			ret += string("\tmov ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
 			ret += string("\tnot ") + ra + string("\n");
@@ -431,7 +461,7 @@ string code_from_line(const line& line)
 			ret += string("\tcall ") + line.code->code[3] + string("\n");
 		} else if(line.code->code[0] == "ret")
 		{
-			ret += string("\n\n\taddq $32, %rsp\n\t popq %rbp\n\tret\n\t.seh_endproc");
+			ret += string("\n\n\taddq $32, %rsp\n\tpopq %rbp\n\tret\n\t.seh_endproc\n");
 		}else if(line.code->code[0] == "asm")
 		{
 			string copy_source = line.code->code[3];
@@ -471,8 +501,8 @@ string code_from_line(const line& line)
 }
 
 string text_asm(const list<line>& final_code)
-{
-	string ret = string("\t.section .rdata,\"dr\"\n\n\t.text\n\t.globl main\n\t.def main; .scl 2; .type 32; .endef\n\t.seh_proc main\n");
+{	
+	string ret = string("");
 	for (auto itr = final_code.begin(); itr != final_code.end(); ++itr)
 		if (itr != final_code.end())
 		{	
