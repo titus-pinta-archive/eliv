@@ -49,6 +49,12 @@ int main(int argc, char** argv )
 	ofile << text << endl;
 	ofile.close();
 	
+	//To do optiuni in linia de comanda
+	//Sa termine procesul de compilare
+	//Sa genereze executabil
+	//To Do apel cu mai multi parametrii
+	
 	return 0;
 
 }
+
