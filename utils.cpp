@@ -371,7 +371,10 @@ string code_from_line(const line& line)
 		} else if(line.code->code[0] == "lea")
 		{
 			int size = stoi(get_size(line.code->code[1]));
-			ret += string("\tlea ") + get_real_addr(line.code->code[1]) + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
+			string ra = reg_a(4);
+			ret += string("\tlea ") + get_real_addr(line.code->code[1]) + string(", ") + ra + string("\n");
+			ret += string("\tmov ") + ra + string(", ") + get_real_addr(line.code->code[3]) + string("\n");
+			
 			
 		} else if(line.code->code[0] == "add")
 		{
